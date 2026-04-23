@@ -42,10 +42,13 @@ Every change that adds behavior ships with a test in the same commit. This proje
 ## Project layout
 
 ```
-bin/main.ml            # thin wrapper — calls Crypto_publicdata.Server.start
-lib/protocol.ml        # pure wire-format logic (parse subscribe, shape responses)
-lib/server.ml          # HTTP/WS handler wiring on top of cohttp_async_websocket
-test/test_crypto_publicdata.ml   # ppx_expect tests — pure + pipe round-trip
+bin/main.ml              # thin wrapper — calls Crypto_publicdata.Server.start
+lib/exchange.ml          # Exchange.t sum (bybit / bybitspot / bybitinverse, growing)
+lib/ticker.ml            # Ticker.t record with empty value; zero = absent
+lib/symbol_normalizer.ml # canonical_base : Exchange.t -> string -> string option
+lib/protocol.ml          # pure WS protocol parsing (subscribe / error shapes)
+lib/server.ml            # HTTP/WS handler on top of cohttp_async_websocket
+test/test_*.ml           # ppx_expect tests — one file per module under test
 ```
 
 New modules land in `lib/`, get re-exported from `Crypto_publicdata.` automatically (the library has no `(wrapped ...)` override). New tests go in the same `test_*.ml` or a sibling file in `test/`.
@@ -118,7 +121,7 @@ Pipeline shape (to be implemented):
 
 ### Canonical-base normalization
 
-`Symbol_normalizer.canonical_base : exchange:string -> symbol:string -> string option` is the pure function that turns an exchange-specific symbol into a canonical base asset (e.g. `"BTC"`). It runs on every ticker every propagation tick, so **keep it stateless** — no caching, just per-exchange string parsing. It must cover format families like:
+`Symbol_normalizer.canonical_base : Exchange.t -> string -> string option` is the pure function that turns an exchange-specific symbol into a canonical base asset (e.g. `"BTC"`). It runs on every ticker every propagation tick, so **keep it stateless** — no caching, just per-exchange string parsing. It must cover format families like:
 
 - `<BASE><QUOTE>` concatenation (Binance, Bybit, Bitget).
 - `<BASE>-<QUOTE>` dash form (Coinbase spot).
