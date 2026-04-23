@@ -6,22 +6,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `crypto-publicdata` is an OCaml service that connects to many crypto exchanges in **public-data-only mode** (no API keys), aggregates per-symbol ticker data into a single in-memory cache, and re-broadcasts it over a WebSocket + REST API with a compact wire format.
 
-> **State**: scaffold stage. Code layout and toolchain choices below are the intended shape — verify against the repo before citing anything as fact, and update this file as decisions land.
+> **State**: early scaffold — the WS listener accepts `{"op":"subscribe"}` and that's about it. Architecture, adapters, aggregator, kline storage, REST endpoints are all still to come.
 
-## Intended toolchain
+## Toolchain
 
-OCaml + dune. Expected commands once scaffolded:
+OCaml 5.2 + dune. The async runtime is **Async** (not Lwt, not Eio) — matched to the Jane Street library stack used here (`core`, `async`, `cohttp-async`, `async_websocket`, `cohttp_async_websocket`, `ppx_jane`). JSON is `yojson`.
 
 ```bash
 opam install --deps-only --with-test .   # install deps
 dune build                                # build all
-dune runtest                              # run tests
-dune exec bin/main.exe                    # run service
-dune fmt                                  # format (ocamlformat)
+dune runtest                              # run tests (ppx_expect inline + test/)
+dune exec bin/main.exe                    # run service on :9880
+dune fmt                                  # format via ocamlformat
 dune build @check                         # type-check without linking
 ```
 
-Async runtime is not yet chosen — Eio and Lwt are both plausible. Whichever lands, the expectation is a single event loop with per-exchange fibers/promises for WS connections plus a tick loop for delta emission. Record the decision here when it's made.
+Local switch lives in `_opam/` (created via `opam switch create . 5.2.0`). The switch is not committed; `.gitignore` excludes `_opam/`, `_build/`, `*.install`.
+
+### Why this stack
+
+- **Jane Street ecosystem over community libraries**: `async_websocket` + `cohttp_async_websocket` are actively maintained by Jane Street, versioned with the rest of `core`/`async`, and expose a clean pipe-based API for the WS frame handler. Avoids the cohttp-async + community-websocket glue dance.
+- **`ppx_jane` everywhere**: brings `let%bind`, `[@@deriving sexp/compare/hash]`, inline `let%expect_test`, `[%message ...]`, etc. in one preprocess clause.
+- **Don't mix runtimes**: anything that pulls Lwt (e.g. Dream, cohttp-lwt, websocket-lwt-unix) is out. Async and Lwt in the same binary are a pain to reason about.
+
+## Tests — one per step, no exceptions
+
+Every change that adds behavior ships with a test in the same commit. This project is an aggregator of quirky upstream feeds and the only way to stay sane is to encode each quirk as a regression-catchable test the moment it's discovered.
+
+- **Default framework**: `ppx_expect`. `let%expect_test "..." = ...; [%expect {| expected output |}]`. Inline tests live in `test/` rather than inside library modules; keeps `dune runtest` fast and keeps the library free of test-only dependencies.
+- **Async tests**: wrap the body in `Thread_safe.block_on_async_exn (fun () -> ...)`. Don't try to return `Deferred.t` from `let%expect_test` directly.
+- **Granularity**: test at the smallest pure layer that captures the behavior. For the WS handler, the pure layer is `Protocol.response_of_text : string -> Outgoing.t` — test that, not the live socket. Integration tests through `Server.handle_messages` exist but are for wiring/round-trip coverage, not every edge case.
+- **When you extend the `op` vocabulary, add its parsing test in the same commit.** Same for: new exchange symbol-format quirks in `Symbol_normalizer`, new TPS window variants, new kline interval derivations, new error types on the wire. The pattern is: if a reviewer would ask "how do we know this still works next month?" and the answer isn't "there's a test", the commit isn't done.
+- **Test naming**: use full-sentence strings (`"subscribe with extra fields is still accepted"`), not snake-identifiers. `ppx_expect` test discovery doesn't care, and the name shows up in failure diffs.
+
+## Project layout
+
+```
+bin/main.ml            # thin wrapper — calls Crypto_publicdata.Server.start
+lib/protocol.ml        # pure wire-format logic (parse subscribe, shape responses)
+lib/server.ml          # HTTP/WS handler wiring on top of cohttp_async_websocket
+test/test_crypto_publicdata.ml   # ppx_expect tests — pure + pipe round-trip
+```
+
+New modules land in `lib/`, get re-exported from `Crypto_publicdata.` automatically (the library has no `(wrapped ...)` override). New tests go in the same `test_*.ml` or a sibling file in `test/`.
 
 ## Architecture (big picture)
 
@@ -140,8 +167,7 @@ All routes are served from the root — there is no `BASE_PATH` prefix. WS lives
 
 ## Things to decide and record here as they land
 
-- Async runtime (Eio vs Lwt) and the HTTP/WS library stack.
-- Exact module layout (`lib/aggregator`, `lib/exchanges/*`, `bin/main`, etc.).
-- JSON library (yojson vs something else) and whether compact keys are hand-rolled or derived from `[@@deriving yojson]` renames.
-- Test runner (alcotest is the likely default) and how integration tests mock upstream feeds.
-- Deployment target — container image + K8s rollout flow, if it matches the existing setup.
+- Kline storage backend (DuckDB vs ClickHouse vs sqlite vs plain Parquet).
+- Whether the compact ticker keys are hand-rolled or derived via `[@@deriving yojson]` renames.
+- How integration tests mock upstream exchange feeds (recorded-frame fixtures vs a tiny in-process WS server).
+- Deployment target — container image + rollout flow.

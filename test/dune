@@ -1,0 +1,6 @@
+(library
+ (name test_crypto_publicdata)
+ (inline_tests)
+ (libraries core async crypto_publicdata)
+ (preprocess
+  (pps ppx_jane)))

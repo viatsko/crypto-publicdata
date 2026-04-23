@@ -1,0 +1,7 @@
+(library
+ (name crypto_publicdata)
+ (public_name crypto_publicdata)
+ (libraries core async cohttp cohttp-async async_websocket
+   cohttp_async_websocket yojson)
+ (preprocess
+  (pps ppx_jane)))

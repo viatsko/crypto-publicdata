@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (libraries core async crypto_publicdata)
+ (preprocess
+  (pps ppx_jane)))
