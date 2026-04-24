@@ -28,6 +28,16 @@ let strip_trailing_quote symbol =
    pass can reduce the rest to a canonical base. *)
 let strip_perp_suffix s = Option.value (String.chop_suffix s ~suffix:"_PERP") ~default:s
 
+(* Hyperliquid spot uses a slash-quote form ([BTC/USDC]). A split on
+   the slash yields the base directly — nothing else needed. *)
+let base_before_slash s =
+  match String.lsplit2 s ~on:'/' with
+  | Some (base, _quote) when not (String.is_empty base) -> Some base
+  | _ -> None
+;;
+
+let pass_through_if_long s = if String.length s >= 2 then Some s else None
+
 let canonical_base (exchange : Exchange.t) symbol =
   if String.is_empty symbol
   then None
@@ -37,5 +47,12 @@ let canonical_base (exchange : Exchange.t) symbol =
       strip_trailing_quote symbol |> Option.map ~f:normalize_alias
     | Binance_inverse ->
       strip_trailing_quote (strip_perp_suffix symbol)
-      |> Option.map ~f:normalize_alias)
+      |> Option.map ~f:normalize_alias
+    | Hyperliquid ->
+      (* Perps are raw base names (BTC, ETH, HYPE). Pass through. *)
+      pass_through_if_long symbol |> Option.map ~f:normalize_alias
+    | Hyperliquid_spot ->
+      (match base_before_slash symbol with
+       | Some base -> Some (normalize_alias base)
+       | None -> pass_through_if_long symbol |> Option.map ~f:normalize_alias))
 ;;

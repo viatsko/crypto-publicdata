@@ -98,3 +98,28 @@ let%expect_test "binance inverse strips the _PERP suffix before the quote" =
     ETH
     |}]
 ;;
+
+let%expect_test "hyperliquid perp passes through raw base names" =
+  show Exchange.Hyperliquid "BTC";
+  show Exchange.Hyperliquid "HYPE";
+  [%expect
+    {|
+    BTC
+    HYPE
+    |}]
+;;
+
+let%expect_test "hyperliquid spot splits on slash-quote" =
+  show Exchange.Hyperliquid_spot "PURR/USDC";
+  show Exchange.Hyperliquid_spot "HYPE/USDC";
+  [%expect
+    {|
+    PURR
+    HYPE
+    |}]
+;;
+
+let%expect_test "hyperliquid single-char is None" =
+  show Exchange.Hyperliquid "X";
+  [%expect {| None |}]
+;;

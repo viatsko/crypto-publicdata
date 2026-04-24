@@ -6,7 +6,8 @@ let ws_url : Exchange.t -> Uri.t = function
   | Bybit -> Uri.of_string (ws_base ^ "/linear")
   | Bybit_spot -> Uri.of_string (ws_base ^ "/spot")
   | Bybit_inverse -> Uri.of_string (ws_base ^ "/inverse")
-  | Binance | Binance_spot | Binance_inverse ->
+  | Binance | Binance_spot | Binance_inverse
+  | Hyperliquid | Hyperliquid_spot ->
     failwith "Bybit_ws.ws_url: not a bybit variant"
 ;;
 
@@ -80,7 +81,8 @@ module Partial = struct
       | Bybit_spot -> 0.
       | Bybit | Bybit_inverse ->
         Option.value partial.funding_rate ~default:t.funding_rate
-      | Binance | Binance_spot | Binance_inverse -> t.funding_rate
+      | Binance | Binance_spot | Binance_inverse
+      | Hyperliquid | Hyperliquid_spot -> t.funding_rate
     in
     let funding_time = Option.value partial.funding_time ~default:t.funding_time in
     let volume = Option.value partial.volume ~default:t.volume in
@@ -125,7 +127,8 @@ let partial_of_data ~(exchange : Exchange.t) json =
       (match exchange with
        | Bybit_spot -> None
        | Bybit | Bybit_inverse -> float_field json "fundingRate"
-       | Binance | Binance_spot | Binance_inverse -> None)
+       | Binance | Binance_spot | Binance_inverse
+       | Hyperliquid | Hyperliquid_spot -> None)
   ; funding_time = int_field json "nextFundingTime"
   ; volume = float_field json "volume24h"
   ; turnover = float_field json "turnover24h"

@@ -37,6 +37,16 @@ let%expect_test "binance usdt-m / spot / inverse" =
     |}]
 ;;
 
+let%expect_test "hyperliquid perp / spot" =
+  show_roundtrip "hyperliquid";
+  show_roundtrip "hyperliquidspot";
+  [%expect
+    {|
+    hyperliquid
+    hyperliquidspot
+    |}]
+;;
+
 let%expect_test "unknown is None" =
   show_roundtrip "nonexistent";
   [%expect {| None |}]
