@@ -54,5 +54,9 @@ let canonical_base (exchange : Exchange.t) symbol =
     | Hyperliquid_spot ->
       (match base_before_slash symbol with
        | Some base -> Some (normalize_alias base)
-       | None -> pass_through_if_long symbol |> Option.map ~f:normalize_alias))
+       | None -> pass_through_if_long symbol |> Option.map ~f:normalize_alias)
+    | Bitget ->
+      (* USDT-M futures use the same concatenated form as Bybit /
+         Binance ([BTCUSDT], [1000PEPEUSDT]). *)
+      strip_trailing_quote symbol |> Option.map ~f:normalize_alias)
 ;;

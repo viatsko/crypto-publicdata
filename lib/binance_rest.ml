@@ -10,7 +10,8 @@ let rest_base : Exchange.t -> string = function
   | Binance -> "https://fapi.binance.com"
   | Binance_spot -> "https://api.binance.com"
   | Binance_inverse -> "https://dapi.binance.com"
-  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot ->    failwith "Binance_rest.rest_base: not a binance variant"
+  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget ->
+    failwith "Binance_rest.rest_base: not a binance variant"
 ;;
 
 let path_prefix : Exchange.t -> string = function
@@ -79,8 +80,7 @@ let keep_symbol_for exchange json =
       | Binance | Binance_inverse ->
         String.equal status "TRADING"
         && String.equal (string_field json "contractType") "PERPETUAL"
-      | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot ->
-        false
+      | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget ->        false
     in
     let margin_ok =
       match (exchange : Exchange.t) with
@@ -89,8 +89,7 @@ let keep_symbol_for exchange json =
          | "USDT" | "USDC" -> true
          | _ -> false)
       | Binance_spot | Binance_inverse -> true
-      | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot ->
-        true
+      | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget ->        true
     in
     trading && margin_ok
   | _ -> false

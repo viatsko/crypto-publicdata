@@ -123,3 +123,15 @@ let%expect_test "hyperliquid single-char is None" =
   show Exchange.Hyperliquid "X";
   [%expect {| None |}]
 ;;
+
+let%expect_test "bitget strips trailing quote like other concat exchanges" =
+  show Exchange.Bitget "BTCUSDT";
+  show Exchange.Bitget "1000PEPEUSDT";
+  show Exchange.Bitget "ETHUSDC";
+  [%expect
+    {|
+    BTC
+    1000PEPE
+    ETH
+    |}]
+;;

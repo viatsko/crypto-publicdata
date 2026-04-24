@@ -35,6 +35,7 @@ let start ~(exchange : Exchange.t) ~aggregator =
    | Hyperliquid_spot ->
      () (* REST only until we wire a spot-capable WS path. *)
    | Bybit | Bybit_spot | Bybit_inverse | Binance | Binance_spot | Binance_inverse
-     -> failwith "Hyperliquid_adapter.start: not a hyperliquid variant");
+   | Bitget ->
+     failwith "Hyperliquid_adapter.start: not a hyperliquid variant");
   Deferred.Or_error.return ()
 ;;

@@ -9,6 +9,7 @@ type t =
   | Binance_inverse
   | Hyperliquid
   | Hyperliquid_spot
+  | Bitget
 [@@deriving sexp, compare, equal, hash]
 
 let to_string = function
@@ -20,6 +21,7 @@ let to_string = function
   | Binance_inverse -> "binanceinverse"
   | Hyperliquid -> "hyperliquid"
   | Hyperliquid_spot -> "hyperliquidspot"
+  | Bitget -> "bitget"
 ;;
 
 let of_string = function
@@ -31,6 +33,7 @@ let of_string = function
   | "binanceinverse" -> Some Binance_inverse
   | "hyperliquid" -> Some Hyperliquid
   | "hyperliquidspot" -> Some Hyperliquid_spot
+  | "bitget" -> Some Bitget
   | _ -> None
 ;;
 

@@ -47,6 +47,11 @@ let%expect_test "hyperliquid perp / spot" =
     |}]
 ;;
 
+let%expect_test "bitget" =
+  show_roundtrip "bitget";
+  [%expect {| bitget |}]
+;;
+
 let%expect_test "unknown is None" =
   show_roundtrip "nonexistent";
   [%expect {| None |}]
