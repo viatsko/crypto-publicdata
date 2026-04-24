@@ -5,11 +5,20 @@ open! Core
    validation in one pass so the server loop only has to handle the
    well-typed cases. *)
 module Incoming = struct
+  (* [rate] is the delta emission interval in seconds. Clamped to
+     [0.1, 5.0] on the server to keep a runaway client from flooding
+     at sub-10ms intervals or starving itself at multi-minute ones. *)
+  let default_rate = 1.
+  let min_rate = 0.1
+  let max_rate = 5.
+  let clamp_rate r = Float.max min_rate (Float.min max_rate r)
+
   type t =
     | Subscribe of
         { channel : string
         ; exchanges : Exchange.t list option
             (* [None] means "every exchange the aggregator knows about". *)
+        ; rate : float
         }
     | Unsubscribe of { channel : string }
     | Ping
@@ -40,6 +49,14 @@ module Incoming = struct
     | Some _ -> Or_error.error_string "exchanges must be an array"
   ;;
 
+  let parse_rate fields =
+    match List.Assoc.find fields "rate" ~equal:String.equal with
+    | None | Some `Null -> Ok default_rate
+    | Some (`Float f) -> Ok (clamp_rate f)
+    | Some (`Int i) -> Ok (clamp_rate (Float.of_int i))
+    | Some _ -> Or_error.error_string "rate must be a number"
+  ;;
+
   let of_text text =
     let open Or_error.Let_syntax in
     let%bind json =
@@ -57,8 +74,9 @@ module Incoming = struct
            | Some s -> Ok s
            | None -> Or_error.error_string "missing channel"
          in
-         let%map exchanges = parse_exchanges fields in
-         Subscribe { channel; exchanges }
+         let%bind exchanges = parse_exchanges fields in
+         let%map rate = parse_rate fields in
+         Subscribe { channel; exchanges; rate }
        | Some "unsubscribe" ->
          let%map channel =
            match string_field fields "channel" with
@@ -79,11 +97,21 @@ module Outgoing = struct
   type snapshot_data = (Exchange.t * (string * Ticker.t) list) list
   [@@deriving sexp_of]
 
+  type delta_data = (Exchange.t * (string * Ticker_delta.t) list) list
+  [@@deriving sexp_of]
+
+  type removed_data = (Exchange.t * string list) list [@@deriving sexp_of]
+
   type t =
     | Connected
     | Snapshot of
         { channel : string
         ; data : snapshot_data
+        }
+    | Delta of
+        { channel : string
+        ; data : delta_data
+        ; removed : removed_data
         }
     | Pong
     | Error of string
@@ -97,6 +125,21 @@ module Outgoing = struct
              (List.map tickers ~f:(fun (sym, t) -> sym, Ticker_json.to_json t)) )))
   ;;
 
+  let delta_data_to_json data =
+    `Assoc
+      (List.map data ~f:(fun (exchange, rows) ->
+         ( Exchange.to_string exchange
+         , `Assoc
+             (List.map rows ~f:(fun (sym, d) -> sym, Ticker_delta.to_json d)) )))
+  ;;
+
+  let removed_data_to_json removed =
+    `Assoc
+      (List.map removed ~f:(fun (exchange, symbols) ->
+         ( Exchange.to_string exchange
+         , `List (List.map symbols ~f:(fun s -> `String s)) )))
+  ;;
+
   let to_json = function
     | Connected -> `Assoc [ "type", `String "connected" ]
     | Snapshot { channel; data } ->
@@ -104,6 +147,13 @@ module Outgoing = struct
         [ "type", `String "snapshot"
         ; "channel", `String channel
         ; "data", snapshot_data_to_json data
+        ]
+    | Delta { channel; data; removed } ->
+      `Assoc
+        [ "type", `String "delta"
+        ; "channel", `String channel
+        ; "data", delta_data_to_json data
+        ; "removed", removed_data_to_json removed
         ]
     | Pong -> `Assoc [ "type", `String "pong" ]
     | Error reason ->

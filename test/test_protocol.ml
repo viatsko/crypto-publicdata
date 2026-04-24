@@ -7,25 +7,46 @@ let show_incoming text =
   | Error e -> print_endline ("ERROR: " ^ Error.to_string_hum e)
 ;;
 
-let%expect_test "subscribe without exchange filter" =
+let%expect_test "subscribe without exchange filter takes the default rate" =
   show_incoming {|{"op":"subscribe","channel":"tickers"}|};
-  [%expect {| (Subscribe (channel tickers) (exchanges ())) |}]
+  [%expect {| (Subscribe (channel tickers) (exchanges ()) (rate 1)) |}]
 ;;
 
 let%expect_test "subscribe with explicit exchange list" =
   show_incoming
     {|{"op":"subscribe","channel":"tickers","exchanges":["bybit","bybitspot"]}|};
-  [%expect {| (Subscribe (channel tickers) (exchanges ((Bybit Bybit_spot)))) |}]
+  [%expect
+    {| (Subscribe (channel tickers) (exchanges ((Bybit Bybit_spot))) (rate 1)) |}]
 ;;
 
 let%expect_test "subscribe with empty exchange list" =
   show_incoming {|{"op":"subscribe","channel":"tickers","exchanges":[]}|};
-  [%expect {| (Subscribe (channel tickers) (exchanges (()))) |}]
+  [%expect {| (Subscribe (channel tickers) (exchanges (())) (rate 1)) |}]
 ;;
 
 let%expect_test "subscribe with null exchange list means 'all'" =
   show_incoming {|{"op":"subscribe","channel":"tickers","exchanges":null}|};
-  [%expect {| (Subscribe (channel tickers) (exchanges ())) |}]
+  [%expect {| (Subscribe (channel tickers) (exchanges ()) (rate 1)) |}]
+;;
+
+let%expect_test "subscribe rate is clamped low" =
+  show_incoming {|{"op":"subscribe","channel":"tickers","rate":0.01}|};
+  [%expect {| (Subscribe (channel tickers) (exchanges ()) (rate 0.1)) |}]
+;;
+
+let%expect_test "subscribe rate is clamped high" =
+  show_incoming {|{"op":"subscribe","channel":"tickers","rate":60}|};
+  [%expect {| (Subscribe (channel tickers) (exchanges ()) (rate 5)) |}]
+;;
+
+let%expect_test "subscribe accepts integer rate" =
+  show_incoming {|{"op":"subscribe","channel":"tickers","rate":2}|};
+  [%expect {| (Subscribe (channel tickers) (exchanges ()) (rate 2)) |}]
+;;
+
+let%expect_test "subscribe rejects non-numeric rate" =
+  show_incoming {|{"op":"subscribe","channel":"tickers","rate":"fast"}|};
+  [%expect {| ERROR: rate must be a number |}]
 ;;
 
 let%expect_test "subscribe with unknown exchange is rejected" =
