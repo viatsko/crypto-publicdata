@@ -147,3 +147,15 @@ let%expect_test "coinbase strips -PERP and -PERP-INTX suffixes" =
     ETH
     |}]
 ;;
+
+let%expect_test "kraken strips the PF_ prefix and USD suffix, with XBT alias" =
+  show Exchange.Kraken "PF_XBTUSD";
+  show Exchange.Kraken "PF_ETHUSD";
+  show Exchange.Kraken "PI_XBTUSD";
+  [%expect
+    {|
+    BTC
+    ETH
+    BTC
+    |}]
+;;

@@ -57,6 +57,11 @@ let%expect_test "coinbase" =
   [%expect {| coinbase |}]
 ;;
 
+let%expect_test "kraken" =
+  show_roundtrip "kraken";
+  [%expect {| kraken |}]
+;;
+
 let%expect_test "unknown is None" =
   show_roundtrip "nonexistent";
   [%expect {| None |}]

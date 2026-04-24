@@ -71,5 +71,19 @@ let canonical_base (exchange : Exchange.t) symbol =
            | Some s -> s
            | None -> symbol)
       in
-      pass_through_if_long stripped |> Option.map ~f:normalize_alias)
+      pass_through_if_long stripped |> Option.map ~f:normalize_alias
+    | Kraken ->
+      (* Perpetuals carry a [PF_] prefix ([PF_XBTUSD], [PF_ETHUSD]).
+         [PI_] is the old inverse-prefix; strip either. After the
+         prefix strip the body still has its USD quote suffix, which
+         the trailing-quote pass handles normally. *)
+      let stripped =
+        match String.chop_prefix symbol ~prefix:"PF_" with
+        | Some s -> s
+        | None ->
+          (match String.chop_prefix symbol ~prefix:"PI_" with
+           | Some s -> s
+           | None -> symbol)
+      in
+      strip_trailing_quote stripped |> Option.map ~f:normalize_alias)
 ;;
