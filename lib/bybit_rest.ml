@@ -6,6 +6,8 @@ let category_string : Exchange.t -> string = function
   | Bybit -> "linear"
   | Bybit_spot -> "spot"
   | Bybit_inverse -> "inverse"
+  | Binance | Binance_spot | Binance_inverse ->
+    failwith "Bybit_rest.category_string: not a bybit variant"
 ;;
 
 let url_with_category path exchange =
@@ -37,7 +39,7 @@ let normalize_open_interest ~exchange ~raw ~mark ~last =
   | Bybit_inverse ->
     let ref_price = if Float.(mark > 0.) then mark else last in
     if Float.(ref_price > 0.) then raw /. ref_price else 0.
-  | Bybit | Bybit_spot -> raw
+  | Bybit | Bybit_spot | Binance | Binance_spot | Binance_inverse -> raw
 ;;
 
 let ticker_of_json ~(exchange : Exchange.t) json =
@@ -57,7 +59,8 @@ let ticker_of_json ~(exchange : Exchange.t) json =
     let funding_rate =
       match exchange with
       | Bybit_spot -> 0.
-      | Bybit | Bybit_inverse -> parse_float (string_field json "fundingRate")
+      | Bybit | Bybit_inverse | Binance | Binance_spot | Binance_inverse ->
+        parse_float (string_field json "fundingRate")
     in
     let funding_time = parse_int (string_field json "nextFundingTime") in
     let percentage = parse_float (string_field json "price24hPcnt") *. 100. in

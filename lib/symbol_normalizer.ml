@@ -23,11 +23,19 @@ let strip_trailing_quote symbol =
   loop quotes
 ;;
 
+(* Binance inverse perps carry a [_PERP] suffix on a USD-quoted symbol
+   (e.g. [BTCUSD_PERP]). Strip it first so the shared trailing-quote
+   pass can reduce the rest to a canonical base. *)
+let strip_perp_suffix s = Option.value (String.chop_suffix s ~suffix:"_PERP") ~default:s
+
 let canonical_base (exchange : Exchange.t) symbol =
   if String.is_empty symbol
   then None
   else (
     match exchange with
-    | Bybit | Bybit_spot | Bybit_inverse ->
-      strip_trailing_quote symbol |> Option.map ~f:normalize_alias)
+    | Bybit | Bybit_spot | Bybit_inverse | Binance | Binance_spot ->
+      strip_trailing_quote symbol |> Option.map ~f:normalize_alias
+    | Binance_inverse ->
+      strip_trailing_quote (strip_perp_suffix symbol)
+      |> Option.map ~f:normalize_alias)
 ;;

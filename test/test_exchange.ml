@@ -25,6 +25,18 @@ let%expect_test "bybit inverse" =
   [%expect {| bybitinverse |}]
 ;;
 
+let%expect_test "binance usdt-m / spot / inverse" =
+  show_roundtrip "binance";
+  show_roundtrip "binancespot";
+  show_roundtrip "binanceinverse";
+  [%expect
+    {|
+    binance
+    binancespot
+    binanceinverse
+    |}]
+;;
+
 let%expect_test "unknown is None" =
   show_roundtrip "nonexistent";
   [%expect {| None |}]

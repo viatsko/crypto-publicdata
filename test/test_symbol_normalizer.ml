@@ -71,3 +71,30 @@ let%expect_test "symbol with no recognised quote passes through" =
   show Exchange.Bybit "WEIRD";
   [%expect {| WEIRD |}]
 ;;
+
+let%expect_test "binance usdt-m" =
+  show Exchange.Binance "BTCUSDT";
+  show Exchange.Binance "1000PEPEUSDT";
+  show Exchange.Binance "ETHUSDC";
+  [%expect
+    {|
+    BTC
+    1000PEPE
+    ETH
+    |}]
+;;
+
+let%expect_test "binance spot" =
+  show Exchange.Binance_spot "ETHUSDT";
+  [%expect {| ETH |}]
+;;
+
+let%expect_test "binance inverse strips the _PERP suffix before the quote" =
+  show Exchange.Binance_inverse "BTCUSD_PERP";
+  show Exchange.Binance_inverse "ETHUSD_PERP";
+  [%expect
+    {|
+    BTC
+    ETH
+    |}]
+;;
