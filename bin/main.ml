@@ -22,6 +22,9 @@ let () =
     (start_adapter "binance" (fun () ->
        Binance_adapter.start ~exchange:Binance ~aggregator));
   don't_wait_for
+    (start_adapter "hyperliquid" (fun () ->
+       Hyperliquid_adapter.start ~exchange:Hyperliquid ~aggregator));
+  don't_wait_for
     (let%bind _server = Server.start ~aggregator () in
      Deferred.never ());
   never_returns (Scheduler.go ())
