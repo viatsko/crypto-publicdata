@@ -214,12 +214,28 @@ module Io = struct
       | Some (symbol, partial) -> on_update ~symbol partial)
   ;;
 
+  (* Bybit's WS edge requires an explicit SNI hostname on the TLS
+     handshake — async_ssl's default SNI derivation trips the server's
+     handshake_failure alert. Passing the host explicitly is the
+     documented workaround.
+
+     [Monitor.try_with] catches any remaining async_ssl / network
+     exceptions that [Client.create]'s own Or_error plumbing doesn't
+     wrap — they escape on a separate monitor and would crash the
+     scheduler otherwise. *)
   let run_once ~exchange ~symbols ~on_update =
+    let uri = ws_url exchange in
+    let sni = Uri.host uri |> Option.value ~default:"" in
     match%bind
-      Cohttp_async_websocket.Client.create ~opcode:`Text (ws_url exchange)
+      Monitor.try_with (fun () ->
+        Cohttp_async_websocket.Client.create
+          ~force_ssl_overriding_SNI_hostname:sni
+          ~opcode:`Text
+          uri)
     with
-    | Error e -> return (Error e)
-    | Ok (_resp, ws) ->
+    | Error exn -> return (Or_error.of_exn exn)
+    | Ok (Error e) -> return (Error e)
+    | Ok (Ok (_resp, ws)) ->
       let reader, writer = Websocket.pipes ws in
       don't_wait_for (ping_loop writer);
       Deferred.Or_error.try_with (fun () ->
@@ -229,9 +245,14 @@ module Io = struct
 
   let run_forever ~exchange ~symbols ~on_update =
     let rec go () =
-      let%bind (_ : unit Or_error.t) =
-        run_once ~exchange ~symbols ~on_update
-      in
+      let%bind result = run_once ~exchange ~symbols ~on_update in
+      (match result with
+       | Ok () -> ()
+       | Error e ->
+         eprintf
+           "bybit ws [%s] disconnected: %s\n%!"
+           (Exchange.to_string exchange)
+           (Error.to_string_hum e));
       let%bind () = Clock.after reconnect_delay in
       go ()
     in

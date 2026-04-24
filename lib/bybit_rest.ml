@@ -126,13 +126,24 @@ let trading_symbols_of_body body =
 module Io = struct
   open Async
 
+  (* Wrap every HTTP call in [Monitor.try_with] — SSL handshake failures,
+     DNS errors, and connection resets all surface as exceptions that
+     would otherwise kill the whole scheduler. Returning them as
+     [Or_error] lets the adapter log and move on. *)
   let fetch url =
-    let%bind response, body_stream = Cohttp_async.Client.get url in
-    let%bind body = Cohttp_async.Body.to_string body_stream in
-    let status = Cohttp.Response.status response |> Cohttp.Code.code_of_status in
-    if status >= 200 && status < 300
-    then return (Ok body)
-    else return (Or_error.errorf "HTTP %d from %s" status (Uri.to_string url))
+    match%map
+      Monitor.try_with (fun () ->
+        let%bind response, body_stream = Cohttp_async.Client.get url in
+        let%bind body = Cohttp_async.Body.to_string body_stream in
+        let status =
+          Cohttp.Response.status response |> Cohttp.Code.code_of_status
+        in
+        return (status, body))
+    with
+    | Ok (status, body) when status >= 200 && status < 300 -> Ok body
+    | Ok (status, _) ->
+      Or_error.errorf "HTTP %d from %s" status (Uri.to_string url)
+    | Error exn -> Or_error.of_exn exn
   ;;
 
   let fetch_trading_symbols exchange =
