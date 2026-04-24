@@ -78,24 +78,37 @@ let apply (t : Ticker.t) d =
   }
 ;;
 
-(* Serialize with full-name camelCase keys to match Ticker_json. The
-   compact single-letter representation lands in a later step. *)
+(* Compact wire format: single-letter keys. A None field is omitted
+   entirely. A Some 0.0 is also omitted — the wire treats zero as
+   "absent", so a field collapsing back to zero can't be expressed as
+   a delta. That's an accepted tradeoff for payload size; in practice
+   symbols whose fields hit zero are usually being delisted, which
+   shows up in the [removed] map instead. *)
 let to_json t =
-  let add name opt json_fn = Option.map opt ~f:(fun v -> name, json_fn v) in
-  let fl v = `Float v in
-  let i v = `Int v in
+  let add_f k v =
+    match v with
+    | None -> None
+    | Some f when Float.equal f 0. -> None
+    | Some f -> Some (k, `Float f)
+  in
+  let add_i k v =
+    match v with
+    | None -> None
+    | Some 0 -> None
+    | Some i -> Some (k, `Int i)
+  in
   `Assoc
     (List.filter_opt
-       [ add "bid" t.bid fl
-       ; add "ask" t.ask fl
-       ; add "last" t.last fl
-       ; add "mark" t.mark fl
-       ; add "index" t.index fl
-       ; add "percentage" t.percentage fl
-       ; add "openInterest" t.open_interest fl
-       ; add "fundingRate" t.funding_rate fl
-       ; add "fundingTime" t.funding_time i
-       ; add "volume" t.volume fl
-       ; add "quoteVolume" t.quote_volume fl
+       [ add_f "b" t.bid
+       ; add_f "a" t.ask
+       ; add_f "l" t.last
+       ; add_f "m" t.mark
+       ; add_f "i" t.index
+       ; add_f "p" t.percentage
+       ; add_f "o" t.open_interest
+       ; add_f "f" t.funding_rate
+       ; add_i "t" t.funding_time
+       ; add_f "v" t.volume
+       ; add_f "q" t.quote_volume
        ])
 ;;

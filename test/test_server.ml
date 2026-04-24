@@ -49,7 +49,7 @@ let%expect_test "subscribe with no exchange filter returns every exchange in the
     ~aggregator:(seed_aggregator ())
     {|{"op":"subscribe","channel":"tickers"}|};
   [%expect
-    {| {"type":"snapshot","channel":"tickers","data":{"bybit":{"BTCUSDT":{"bid":0.0,"ask":0.0,"last":50000.0,"mark":0.0,"index":0.0,"percentage":0.0,"openInterest":0.0,"fundingRate":0.0,"fundingTime":0,"volume":0.0,"quoteVolume":0.0},"ETHUSDT":{"bid":0.0,"ask":0.0,"last":3000.0,"mark":0.0,"index":0.0,"percentage":0.0,"openInterest":0.0,"fundingRate":0.0,"fundingTime":0,"volume":0.0,"quoteVolume":0.0}},"bybitspot":{"ETHUSDC":{"bid":0.0,"ask":0.0,"last":3001.0,"mark":0.0,"index":0.0,"percentage":0.0,"openInterest":0.0,"fundingRate":0.0,"fundingTime":0,"volume":0.0,"quoteVolume":0.0}}}} |}]
+    {| {"type":"snapshot","channel":"tickers","data":{"bybit":{"BTCUSDT":{"l":50000.0},"ETHUSDT":{"l":3000.0}},"bybitspot":{"ETHUSDC":{"l":3001.0}}}} |}]
 ;;
 
 let%expect_test "exchange filter trims the snapshot" =
@@ -57,7 +57,7 @@ let%expect_test "exchange filter trims the snapshot" =
     ~aggregator:(seed_aggregator ())
     {|{"op":"subscribe","channel":"tickers","exchanges":["bybitspot"]}|};
   [%expect
-    {| {"type":"snapshot","channel":"tickers","data":{"bybitspot":{"ETHUSDC":{"bid":0.0,"ask":0.0,"last":3001.0,"mark":0.0,"index":0.0,"percentage":0.0,"openInterest":0.0,"fundingRate":0.0,"fundingTime":0,"volume":0.0,"quoteVolume":0.0}}}} |}]
+    {| {"type":"snapshot","channel":"tickers","data":{"bybitspot":{"ETHUSDC":{"l":3001.0}}}} |}]
 ;;
 
 let%expect_test "empty exchange filter selects nothing" =

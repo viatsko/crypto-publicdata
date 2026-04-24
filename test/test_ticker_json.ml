@@ -18,7 +18,7 @@ let%expect_test "ticker_json emits all fields with camelCase keys" =
   in
   print_endline (Yojson.Safe.to_string (Ticker_json.to_json t));
   [%expect
-    {| {"bid":50000.0,"ask":50001.0,"last":50000.5,"mark":50000.3,"index":50000.2,"percentage":1.23,"openInterest":12345.0,"fundingRate":0.0001,"fundingTime":1775766154000,"volume":100.0,"quoteVolume":5000025.0} |}]
+    {| {"b":50000.0,"a":50001.0,"l":50000.5,"m":50000.3,"i":50000.2,"p":1.23,"o":12345.0,"f":0.0001,"t":1775766154000,"v":100.0,"q":5000025.0} |}]
 ;;
 
 let%expect_test "tickers_response is sorted by symbol" =
@@ -35,45 +35,9 @@ let%expect_test "tickers_response is sorted by symbol" =
     {|
     {
       "tickers": {
-        "BTCUSDT": {
-          "bid": 0.0,
-          "ask": 0.0,
-          "last": 50000.0,
-          "mark": 0.0,
-          "index": 0.0,
-          "percentage": 0.0,
-          "openInterest": 0.0,
-          "fundingRate": 0.0,
-          "fundingTime": 0,
-          "volume": 0.0,
-          "quoteVolume": 0.0
-        },
-        "MIDUSDT": {
-          "bid": 0.0,
-          "ask": 0.0,
-          "last": 100.0,
-          "mark": 0.0,
-          "index": 0.0,
-          "percentage": 0.0,
-          "openInterest": 0.0,
-          "fundingRate": 0.0,
-          "fundingTime": 0,
-          "volume": 0.0,
-          "quoteVolume": 0.0
-        },
-        "ZEBRAUSDT": {
-          "bid": 0.0,
-          "ask": 0.0,
-          "last": 1.0,
-          "mark": 0.0,
-          "index": 0.0,
-          "percentage": 0.0,
-          "openInterest": 0.0,
-          "fundingRate": 0.0,
-          "fundingTime": 0,
-          "volume": 0.0,
-          "quoteVolume": 0.0
-        }
+        "BTCUSDT": { "l": 50000.0 },
+        "MIDUSDT": { "l": 100.0 },
+        "ZEBRAUSDT": { "l": 1.0 }
       }
     }
     |}]
@@ -83,4 +47,15 @@ let%expect_test "empty tickers produce an empty map" =
   let json = Ticker_json.tickers_response [] in
   print_endline (Yojson.Safe.to_string json);
   [%expect {| {"tickers":{}} |}]
+;;
+
+let%expect_test "zero fields are stripped from the wire" =
+  print_endline (Yojson.Safe.to_string (Ticker_json.to_json Ticker.empty));
+  [%expect {| {} |}]
+;;
+
+let%expect_test "only non-zero fields appear in the wire representation" =
+  let t = { Ticker.empty with bid = 100.; last = 99.5; funding_time = 1234 } in
+  print_endline (Yojson.Safe.to_string (Ticker_json.to_json t));
+  [%expect {| {"b":100.0,"l":99.5,"t":1234} |}]
 ;;

@@ -48,32 +48,8 @@ let%expect_test "GET /api/tickers serves aggregator state for the requested exch
     status=200
     {
       "tickers": {
-        "BTCUSDT": {
-          "bid": 50000.0,
-          "ask": 50001.0,
-          "last": 50000.5,
-          "mark": 0.0,
-          "index": 0.0,
-          "percentage": 0.0,
-          "openInterest": 0.0,
-          "fundingRate": 0.0,
-          "fundingTime": 0,
-          "volume": 0.0,
-          "quoteVolume": 0.0
-        },
-        "ETHUSDT": {
-          "bid": 3000.0,
-          "ask": 3001.0,
-          "last": 3000.5,
-          "mark": 0.0,
-          "index": 0.0,
-          "percentage": 0.0,
-          "openInterest": 0.0,
-          "fundingRate": 0.0,
-          "fundingTime": 0,
-          "volume": 0.0,
-          "quoteVolume": 0.0
-        }
+        "BTCUSDT": { "b": 50000.0, "a": 50001.0, "l": 50000.5 },
+        "ETHUSDT": { "b": 3000.0, "a": 3001.0, "l": 3000.5 }
       }
     }
     |}]

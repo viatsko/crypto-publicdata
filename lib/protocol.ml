@@ -19,6 +19,9 @@ module Incoming = struct
         ; exchanges : Exchange.t list option
             (* [None] means "every exchange the aggregator knows about". *)
         ; rate : float
+        ; include_index : bool
+            (* [index] is opt-in — off by default so it doesn't inflate
+               every delta for clients that never display it. *)
         }
     | Unsubscribe of { channel : string }
     | Ping
@@ -57,6 +60,13 @@ module Incoming = struct
     | Some _ -> Or_error.error_string "rate must be a number"
   ;;
 
+  let parse_bool_field ~default fields name =
+    match List.Assoc.find fields name ~equal:String.equal with
+    | None | Some `Null -> Ok default
+    | Some (`Bool b) -> Ok b
+    | Some _ -> Or_error.errorf "%s must be a boolean" name
+  ;;
+
   let of_text text =
     let open Or_error.Let_syntax in
     let%bind json =
@@ -75,8 +85,11 @@ module Incoming = struct
            | None -> Or_error.error_string "missing channel"
          in
          let%bind exchanges = parse_exchanges fields in
-         let%map rate = parse_rate fields in
-         Subscribe { channel; exchanges; rate }
+         let%bind rate = parse_rate fields in
+         let%map include_index =
+           parse_bool_field ~default:false fields "includeIndex"
+         in
+         Subscribe { channel; exchanges; rate; include_index }
        | Some "unsubscribe" ->
          let%map channel =
            match string_field fields "channel" with

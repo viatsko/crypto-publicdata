@@ -7,8 +7,13 @@ let default_port = 9880
    every exchange the aggregator currently carries; explicit list =>
    use that (including zero-entry exchanges, which serialise to an
    empty map — a useful "this exchange exists but is empty" signal
-   versus an exchange the client didn't ask for at all). *)
-let snapshot_data ~aggregator ~exchanges =
+   versus an exchange the client didn't ask for at all).
+
+   [~include_index] runs every ticker through [Ticker.apply_subscribe_opts]
+   so the frame we emit and the copy we seed into the shadow agree on
+   what the client has seen — otherwise a subsequent delta would think
+   [index] changed on the first tick for every symbol. *)
+let snapshot_data ~aggregator ~exchanges ~include_index =
   let selected =
     match exchanges with
     | None -> Aggregator.exchanges aggregator
@@ -20,22 +25,16 @@ let snapshot_data ~aggregator ~exchanges =
     let tickers =
       Aggregator.snapshot_exchange aggregator exchange
       |> List.sort ~compare:(fun (a, _) (b, _) -> String.compare a b)
+      |> List.map ~f:(fun (sym, t) ->
+        sym, Ticker.apply_subscribe_opts ~include_index t)
     in
     exchange, tickers)
 ;;
 
-(* Snapshot-and-update-shadow: building blocks used by handle_incoming
-   for the initial Snapshot frame and by the tick loop for subsequent
-   Delta frames. Factored so tests can call them without going
-   through the cohttp-async plumbing. *)
-let initial_snapshot ~aggregator ~exchanges ~shadow =
-  let snap = snapshot_data ~aggregator ~exchanges in
+let initial_snapshot ~aggregator ~exchanges ~include_index ~shadow =
+  let snap = snapshot_data ~aggregator ~exchanges ~include_index in
   Shadow.seed shadow ~snapshot:snap;
   snap
-;;
-
-let compute_delta ~aggregator ~exchanges_filter ~shadow =
-  Shadow.advance shadow ~aggregator ~exchanges_filter
 ;;
 
 let handle_incoming ~aggregator msg : Protocol.Outgoing.t =
@@ -43,11 +42,11 @@ let handle_incoming ~aggregator msg : Protocol.Outgoing.t =
   | Error e -> Error (Error.to_string_hum e)
   | Ok Ping -> Pong
   | Ok (Unsubscribe _) -> Error "unsubscribe not implemented yet"
-  | Ok (Subscribe { channel; exchanges; rate = _ }) ->
+  | Ok (Subscribe { channel; exchanges; rate = _; include_index }) ->
     if String.equal channel "tickers"
     then (
       let shadow = Shadow.create () in
-      let data = initial_snapshot ~aggregator ~exchanges ~shadow in
+      let data = initial_snapshot ~aggregator ~exchanges ~include_index ~shadow in
       Snapshot { channel; data })
     else Error (sprintf "unknown channel: %s" channel)
 ;;
@@ -56,7 +55,14 @@ let handle_incoming ~aggregator msg : Protocol.Outgoing.t =
    every [rate] seconds *if* something actually changed; empty ticks
    produce no wire traffic. Exits when the output pipe closes (i.e.
    client disconnected or handler tore down). *)
-let run_tick_loop ~aggregator ~exchanges_filter ~shadow ~output ~rate =
+let run_tick_loop
+      ~aggregator
+      ~exchanges_filter
+      ~include_index
+      ~shadow
+      ~output
+      ~rate
+  =
   let span = Time_float.Span.of_sec rate in
   let rec loop () =
     if Pipe.is_closed output
@@ -67,7 +73,7 @@ let run_tick_loop ~aggregator ~exchanges_filter ~shadow ~output ~rate =
       then return ()
       else (
         let data, removed =
-          compute_delta ~aggregator ~exchanges_filter ~shadow
+          Shadow.advance shadow ~aggregator ~exchanges_filter ~include_index
         in
         if List.is_empty data && List.is_empty removed
         then loop ()
@@ -99,7 +105,7 @@ let handle_messages ~aggregator ~input ~output =
           output
           (Protocol.Outgoing.to_string
              (Error "unsubscribe not implemented yet"))
-      | Ok (Subscribe { channel; exchanges; rate }) ->
+      | Ok (Subscribe { channel; exchanges; rate; include_index }) ->
         if !subscribed
         then
           Pipe.write
@@ -115,7 +121,9 @@ let handle_messages ~aggregator ~input ~output =
         else (
           subscribed := true;
           let shadow = Shadow.create () in
-          let data = initial_snapshot ~aggregator ~exchanges ~shadow in
+          let data =
+            initial_snapshot ~aggregator ~exchanges ~include_index ~shadow
+          in
           let%bind () =
             Pipe.write
               output
@@ -125,6 +133,7 @@ let handle_messages ~aggregator ~input ~output =
             (run_tick_loop
                ~aggregator
                ~exchanges_filter:exchanges
+               ~include_index
                ~shadow
                ~output
                ~rate);

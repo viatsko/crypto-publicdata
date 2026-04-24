@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `crypto-publicdata` is an OCaml service that connects to many crypto exchanges in **public-data-only mode** (no API keys), aggregates per-symbol ticker data into a single in-memory cache, and re-broadcasts it over a WebSocket + REST API with a compact wire format.
 
-> **State**: early scaffold — the WS listener accepts `{"op":"subscribe"}` and that's about it. Architecture, adapters, aggregator, kline storage, REST endpoints are all still to come.
+> **State**: Bybit linear end-to-end — REST snapshot populates the aggregator, WS ticker stream keeps it fresh, `/api/tickers` serves the current state, and WS subscribers get a `snapshot` plus rate-paced `delta` frames in the compact wire format. Bybit spot + inverse, other exchanges, kline storage, and the trades/TPS pipeline are still pending.
 
 ## Toolchain
 
@@ -42,12 +42,20 @@ Every change that adds behavior ships with a test in the same commit. This proje
 ## Project layout
 
 ```
-bin/main.ml              # thin wrapper — calls Crypto_publicdata.Server.start
+bin/main.ml              # thin wrapper — starts Bybit adapter + server
 lib/exchange.ml          # Exchange.t sum (bybit / bybitspot / bybitinverse, growing)
 lib/ticker.ml            # Ticker.t record with empty value; zero = absent
+lib/ticker_json.ml       # Compact JSON encoding (single-letter keys, zero-stripped)
+lib/ticker_delta.ml      # Ticker_delta.t — per-field option record for delta frames
 lib/symbol_normalizer.ml # canonical_base : Exchange.t -> string -> string option
-lib/protocol.ml          # pure WS protocol parsing (subscribe / error shapes)
-lib/server.ml            # HTTP/WS handler on top of cohttp_async_websocket
+lib/aggregator.ml        # exchange → symbol → Ticker in-memory store with versions
+lib/shadow.ml            # Per-client mirror; advance diffs it against the aggregator
+lib/bybit_rest.ml        # REST snapshot (markets + tickers) via cohttp-async
+lib/bybit_ws.ml          # WS ticker stream (subscribe in chunks, reconnect loop)
+lib/bybit_adapter.ml     # Orchestrator: REST snapshot → aggregator → WS stream
+lib/protocol.ml          # WS protocol types (Incoming: Subscribe/Unsubscribe/Ping;
+                         # Outgoing: Connected/Snapshot/Delta/Pong/Error)
+lib/server.ml            # HTTP + WS handler, /api/tickers, per-client tick loop
 test/test_*.ml           # ppx_expect tests — one file per module under test
 ```
 

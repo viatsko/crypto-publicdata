@@ -74,7 +74,7 @@ let%expect_test "funding_time diff (integer compare)" =
 let%expect_test "to_json omits fields that are None" =
   let d = { Ticker_delta.empty with bid = Some 100.; last = Some 99.5 } in
   print_endline (Yojson.Safe.to_string (Ticker_delta.to_json d));
-  [%expect {| {"bid":100.0,"last":99.5} |}]
+  [%expect {| {"b":100.0,"l":99.5} |}]
 ;;
 
 let%expect_test "to_json on empty delta is an empty object" =
@@ -88,4 +88,14 @@ let%expect_test "apply folds a delta into a base ticker" =
   let merged = Ticker_delta.apply base d in
   printf "bid=%f ask=%f\n" merged.bid merged.ask;
   [%expect {| bid=100.000000 ask=102.000000 |}]
+;;
+
+let%expect_test "Some 0. collapses to absent on the wire" =
+  (* Wire format treats zero as absent. A delta that walks a field to
+     0 can't be encoded — that's an intentional tradeoff for payload
+     size; symbols whose fields hit zero usually get removed via the
+     [removed] map instead. *)
+  let d = { Ticker_delta.empty with bid = Some 0.; funding_time = Some 0 } in
+  print_endline (Yojson.Safe.to_string (Ticker_delta.to_json d));
+  [%expect {| {} |}]
 ;;

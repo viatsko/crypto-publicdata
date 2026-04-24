@@ -35,3 +35,11 @@ let empty =
   ; quote_volume = 0.
   }
 ;;
+
+(* Zero the opt-in fields that a given subscriber hasn't opted into.
+   Today only [index] is opt-in — applying this before the ticker hits
+   the shadow makes the diff treat a changing index as unchanged, and
+   the wire-strip on zero removes it from the serialised frame. *)
+let apply_subscribe_opts ~include_index (t : t) =
+  if include_index then t else { t with index = 0. }
+;;

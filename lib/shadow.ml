@@ -35,13 +35,14 @@ let selected_exchanges t ~aggregator ~exchanges_filter =
   | Some xs -> xs
 ;;
 
-let advance t ~aggregator ~exchanges_filter =
+let advance t ~aggregator ~exchanges_filter ~include_index =
   let exchanges = selected_exchanges t ~aggregator ~exchanges_filter in
   let diffs = Queue.create () in
   let removals = Queue.create () in
   List.iter exchanges ~f:(fun exchange ->
     let current =
       Aggregator.snapshot_exchange aggregator exchange
+      |> List.map ~f:(fun (sym, t) -> sym, Ticker.apply_subscribe_opts ~include_index t)
       |> String.Map.of_alist_exn
     in
     let tbl = table_for t exchange in
