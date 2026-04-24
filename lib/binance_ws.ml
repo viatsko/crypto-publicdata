@@ -9,7 +9,7 @@ let ws_url : Exchange.t -> Uri.t = function
   | Binance -> Uri.of_string "wss://fstream.binance.com/ws"
   | Binance_spot -> Uri.of_string "wss://stream.binance.com/ws"
   | Binance_inverse -> Uri.of_string "wss://dstream.binance.com/ws"
-  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget ->    failwith "Binance_ws.ws_url: not a binance variant"
+  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget | Coinbase ->    failwith "Binance_ws.ws_url: not a binance variant"
 ;;
 
 (* Streams subscribed to once the WS is open. Futures and inverse need
@@ -18,7 +18,7 @@ let streams_for : Exchange.t -> string list = function
   | Binance | Binance_inverse ->
     [ "!ticker@arr"; "!bookTicker"; "!markPrice@arr@1s" ]
   | Binance_spot -> [ "!ticker@arr" ]
-  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget ->    failwith "Binance_ws.streams_for: not a binance variant"
+  | Bybit | Bybit_spot | Bybit_inverse | Hyperliquid | Hyperliquid_spot | Bitget | Coinbase ->    failwith "Binance_ws.streams_for: not a binance variant"
 ;;
 
 let subscribe_frame streams =

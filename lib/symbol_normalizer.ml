@@ -58,5 +58,18 @@ let canonical_base (exchange : Exchange.t) symbol =
     | Bitget ->
       (* USDT-M futures use the same concatenated form as Bybit /
          Binance ([BTCUSDT], [1000PEPEUSDT]). *)
-      strip_trailing_quote symbol |> Option.map ~f:normalize_alias)
+      strip_trailing_quote symbol |> Option.map ~f:normalize_alias
+    | Coinbase ->
+      (* INTX perps are dash-separated: [BTC-PERP] or, when the
+         [-INTX] display suffix has been tacked on, [BTC-PERP-INTX].
+         Strip either trailing form, then alias XBT→BTC. *)
+      let stripped =
+        match String.chop_suffix symbol ~suffix:"-PERP-INTX" with
+        | Some s -> s
+        | None ->
+          (match String.chop_suffix symbol ~suffix:"-PERP" with
+           | Some s -> s
+           | None -> symbol)
+      in
+      pass_through_if_long stripped |> Option.map ~f:normalize_alias)
 ;;

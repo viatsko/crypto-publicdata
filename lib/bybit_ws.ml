@@ -7,7 +7,7 @@ let ws_url : Exchange.t -> Uri.t = function
   | Bybit_spot -> Uri.of_string (ws_base ^ "/spot")
   | Bybit_inverse -> Uri.of_string (ws_base ^ "/inverse")
   | Binance | Binance_spot | Binance_inverse
-  | Hyperliquid | Hyperliquid_spot | Bitget ->    failwith "Bybit_ws.ws_url: not a bybit variant"
+  | Hyperliquid | Hyperliquid_spot | Bitget | Coinbase ->    failwith "Bybit_ws.ws_url: not a bybit variant"
 ;;
 
 (* Upstream serialises every numeric field as a string. Treat the empty
@@ -81,7 +81,7 @@ module Partial = struct
       | Bybit | Bybit_inverse ->
         Option.value partial.funding_rate ~default:t.funding_rate
       | Binance | Binance_spot | Binance_inverse
-      | Hyperliquid | Hyperliquid_spot | Bitget -> t.funding_rate
+      | Hyperliquid | Hyperliquid_spot | Bitget | Coinbase -> t.funding_rate
     in
     let funding_time = Option.value partial.funding_time ~default:t.funding_time in
     let volume = Option.value partial.volume ~default:t.volume in
@@ -127,7 +127,7 @@ let partial_of_data ~(exchange : Exchange.t) json =
        | Bybit_spot -> None
        | Bybit | Bybit_inverse -> float_field json "fundingRate"
        | Binance | Binance_spot | Binance_inverse
-       | Hyperliquid | Hyperliquid_spot | Bitget -> None)
+       | Hyperliquid | Hyperliquid_spot | Bitget | Coinbase -> None)
   ; funding_time = int_field json "nextFundingTime"
   ; volume = float_field json "volume24h"
   ; turnover = float_field json "turnover24h"

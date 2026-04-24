@@ -135,3 +135,15 @@ let%expect_test "bitget strips trailing quote like other concat exchanges" =
     ETH
     |}]
 ;;
+
+let%expect_test "coinbase strips -PERP and -PERP-INTX suffixes" =
+  show Exchange.Coinbase "BTC-PERP";
+  show Exchange.Coinbase "BTC-PERP-INTX";
+  show Exchange.Coinbase "ETH-PERP";
+  [%expect
+    {|
+    BTC
+    BTC
+    ETH
+    |}]
+;;

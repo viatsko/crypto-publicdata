@@ -27,6 +27,8 @@ let () =
   don't_wait_for
     (start_adapter "bitget" (fun () -> Bitget_adapter.start ~aggregator));
   don't_wait_for
+    (start_adapter "coinbase" (fun () -> Coinbase_adapter.start ~aggregator));
+  don't_wait_for
     (let%bind _server = Server.start ~aggregator () in
      Deferred.never ());
   never_returns (Scheduler.go ())

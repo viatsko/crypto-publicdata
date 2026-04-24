@@ -10,6 +10,7 @@ type t =
   | Hyperliquid
   | Hyperliquid_spot
   | Bitget
+  | Coinbase
 [@@deriving sexp, compare, equal, hash]
 
 let to_string = function
@@ -22,6 +23,7 @@ let to_string = function
   | Hyperliquid -> "hyperliquid"
   | Hyperliquid_spot -> "hyperliquidspot"
   | Bitget -> "bitget"
+  | Coinbase -> "coinbase"
 ;;
 
 let of_string = function
@@ -34,6 +36,7 @@ let of_string = function
   | "hyperliquid" -> Some Hyperliquid
   | "hyperliquidspot" -> Some Hyperliquid_spot
   | "bitget" -> Some Bitget
+  | "coinbase" -> Some Coinbase
   | _ -> None
 ;;
 

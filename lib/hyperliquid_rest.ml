@@ -15,7 +15,7 @@ let request_body : Exchange.t -> string = function
     Yojson.Safe.to_string
       (`Assoc [ "type", `String "spotMetaAndAssetCtxs" ])
   | Bybit | Bybit_spot | Bybit_inverse | Binance | Binance_spot | Binance_inverse
-  | Bitget ->
+  | Bitget | Coinbase ->
     failwith "Hyperliquid_rest.request_body: not a hyperliquid variant"
 ;;
 

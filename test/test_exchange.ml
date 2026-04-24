@@ -52,6 +52,11 @@ let%expect_test "bitget" =
   [%expect {| bitget |}]
 ;;
 
+let%expect_test "coinbase" =
+  show_roundtrip "coinbase";
+  [%expect {| coinbase |}]
+;;
+
 let%expect_test "unknown is None" =
   show_roundtrip "nonexistent";
   [%expect {| None |}]
