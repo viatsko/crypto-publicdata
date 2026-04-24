@@ -3,22 +3,57 @@ open Async
 
 let default_port = 9880
 
-let handle_messages ~input ~output =
+(* Build a stable, sorted snapshot of the aggregator for a client. If
+   the client supplied no exchange filter we take everything currently
+   in the aggregator; if they supplied an explicit list we use it as-is
+   (including zero-entry exchanges — those just serialise to an empty
+   map, which is a useful "this exchange exists but is empty" signal). *)
+let snapshot_data ~aggregator ~exchanges =
+  let selected =
+    match exchanges with
+    | None -> Aggregator.exchanges aggregator
+    | Some xs -> xs
+  in
+  selected
+  |> List.sort ~compare:Exchange.compare
+  |> List.map ~f:(fun exchange ->
+    let tickers =
+      Aggregator.snapshot_exchange aggregator exchange
+      |> List.sort ~compare:(fun (a, _) (b, _) -> String.compare a b)
+    in
+    exchange, tickers)
+;;
+
+let handle_incoming ~aggregator msg : Protocol.Outgoing.t =
+  match Protocol.Incoming.of_text msg with
+  | Error e -> Error (Error.to_string_hum e)
+  | Ok Ping -> Pong
+  | Ok (Unsubscribe _) -> Error "unsubscribe not implemented yet"
+  | Ok (Subscribe { channel; exchanges }) ->
+    if String.equal channel "tickers"
+    then Snapshot { channel; data = snapshot_data ~aggregator ~exchanges }
+    else Error (sprintf "unknown channel: %s" channel)
+;;
+
+let handle_messages ~aggregator ~input ~output =
+  let%bind () = Pipe.write output (Protocol.Outgoing.to_string Connected) in
   let%bind () =
     Pipe.iter input ~f:(fun msg ->
-      Pipe.write output (Protocol.(Outgoing.to_string (response_of_text msg))))
+      let reply = handle_incoming ~aggregator msg in
+      Pipe.write output (Protocol.Outgoing.to_string reply))
   in
   Pipe.close output;
   return ()
 ;;
 
-let run_websocket websocket =
+let run_websocket ~aggregator websocket =
   let input, output = Websocket.pipes websocket in
-  handle_messages ~input ~output
+  handle_messages ~aggregator ~input ~output
 ;;
 
-let websocket_handler ~inet:_ ~subprotocol:_ (_req : Cohttp.Request.t) =
-  return (Cohttp_async_websocket.Server.On_connection.create run_websocket)
+let websocket_handler ~aggregator ~inet:_ ~subprotocol:_ (_req : Cohttp.Request.t) =
+  return
+    (Cohttp_async_websocket.Server.On_connection.create (run_websocket ~aggregator))
 ;;
 
 let json_headers =
@@ -62,7 +97,7 @@ let handler ~aggregator =
     ~non_ws_request:(non_ws_handler ~aggregator)
     ~opcode:`Text
     ~should_process_request:accept_any_origin
-    websocket_handler
+    (websocket_handler ~aggregator)
 ;;
 
 let start ?(port = default_port) ~aggregator () =
